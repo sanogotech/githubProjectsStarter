@@ -20,7 +20,7 @@ graph TD
     C --> D1[Service Membres]
     C --> D2[Service Récoltes]
     C --> D3[Service Ventes]
-    C --> D4[Service Auth (JWT + Keycloak)]
+    C --> D4[Service Auth JWT + Keycloak]
     C --> D5[Service Export]
     D1 --> DB1[PostgreSQL Membres]
     D2 --> DB2[PostgreSQL Récoltes]
