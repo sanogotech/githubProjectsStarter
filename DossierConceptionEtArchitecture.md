@@ -16,7 +16,7 @@ Ce document décrit l’architecture technique, les choix technologiques, la mod
 ```mermaid
 graph TD
     A[Utilisateur web/mobile] --> B[Client React / Flutter]
-    B --> C[API Gateway (Node.js)]
+    B --> C[API Gateway Node.js]
     C --> D1[Service Membres]
     C --> D2[Service Récoltes]
     C --> D3[Service Ventes]
