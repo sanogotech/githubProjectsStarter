@@ -1,222 +1,213 @@
 
-
-# 📘 **Document de Conception et d’Architecture Technique – Projet AgriSmart**
-
----
-
-## 🧾 **1. Introduction**
-
-**AgriSmart** est une solution Web et mobile permettant aux coopératives agricoles de suivre leurs membres, les récoltes, ventes, dépenses, stocks et d’accéder à des analyses temps réel.
-
-Ce document vise à :
-
-* Formaliser l’architecture logicielle et technique
-* Fournir les modèles conceptuels et physiques
-* Documenter les choix DevSecOps
-* Servir de base à l’implémentation, aux tests et au déploiement
+# 📘 Document de Conception et d’Architecture Technique – Projet AgriSmart v1.0
 
 ---
 
-## 🧱 **2. Architecture globale du système**
+## 1. 🎯 Objectif du document
 
-### 🗺️ **2.1 Schéma d’architecture fonctionnelle**
+Ce document décrit l’architecture technique, les choix technologiques, la modélisation fonctionnelle et les pratiques DevSecOps mises en place pour le projet **AgriSmart**, une plateforme numérique Web + Mobile de gestion des coopératives agricoles.
+
+---
+
+## 2. 🗺️ Architecture du système
+
+### 2.1 Architecture logicielle – Vue globale
 
 ```mermaid
 graph TD
-    A[Utilisateur web/mobile] --> B[Frontend React / Flutter]
-    B --> C[API Gateway]
-    C --> D[Microservice Membres]
-    C --> E[Microservice Récoltes]
-    C --> F[Microservice Ventes]
-    D --> G[(PostgreSQL Membres)]
-    E --> H[(PostgreSQL Récoltes)]
-    F --> I[(PostgreSQL Ventes)]
-    C --> J[Auth Service (JWT)]
-    C --> K[Service Export PDF/Excel]
-    C --> L[Monitoring (Prometheus + Grafana)]
+    A[Utilisateur web/mobile] --> B[Client (React / Flutter)]
+    B --> C[API Gateway (Node.js)]
+    C --> D1[Service Membres]
+    C --> D2[Service Récoltes]
+    C --> D3[Service Ventes]
+    C --> D4[Service Auth (JWT + Keycloak)]
+    C --> D5[Service Export]
+    D1 --> DB1[(PostgreSQL Membres)]
+    D2 --> DB2[(PostgreSQL Récoltes)]
+    D3 --> DB3[(PostgreSQL Ventes)]
+    C --> LOGS[Logstash + Elasticsearch]
+    C --> MON[Prometheus → Grafana]
+```
+
+> Chaque service est déployé sous forme de **microservice conteneurisé** (Docker), orchestré avec **Docker Compose** (ou Kubernetes en version entreprise).
+
+---
+
+## 3. 🧱 Architecture logicielle détaillée (3 couches)
+
+| Couche       | Description                               | Technologies             |
+| ------------ | ----------------------------------------- | ------------------------ |
+| Présentation | UI Web & Mobile                           | React.js / Flutter       |
+| Métier       | Services REST, logique métier             | Node.js / Express        |
+| Données      | Bases relationnelles et fichiers exportés | PostgreSQL / Excel / PDF |
+
+---
+
+## 4. ⚙️ Dimensionnement initial & OS
+
+### 4.1 Infrastructure de déploiement cible (MVP)
+
+| Élément                          | Valeur recommandée               |
+| -------------------------------- | -------------------------------- |
+| Nombre d’utilisateurs simultanés | 100 – 300                        |
+| OS Serveur                       | Ubuntu Server 22.04 LTS          |
+| RAM (minimum)                    | 8 Go                             |
+| CPU                              | 4 vCPU                           |
+| Stockage                         | 80 Go SSD                        |
+| Réseau                           | 20 Mbps symétrique min           |
+| Environnement                    | Cloud VPS (Scaleway / OVH / AWS) |
+
+### 4.2 Répartition recommandée
+
+```mermaid
+flowchart TB
+    Client-->|HTTPS|Nginx-->|Load Balancing|API
+    API-->|REST|Microservices
+    Microservices-->|SQL|PostgreSQL
+    API-->|Logs|ELK
+    API-->|Metrics|Prometheus
 ```
 
 ---
 
-## ⚙️ **3. Choix techniques & technologies**
+## 5. 🗃️ Modélisation Merise & UML
 
-| Composant            | Technologie          | Justification                        |
-| -------------------- | -------------------- | ------------------------------------ |
-| Frontend Web         | React.js             | Rich UI, vaste communauté            |
-| Application Mobile   | Flutter              | Multi-plateforme Android/iOS         |
-| API Backend          | Node.js + Express    | Légèreté, rapidité, REST             |
-| Base de données      | PostgreSQL           | Relationnelle, fiable, SQL puissant  |
-| Authentification     | JWT + Keycloak       | Sécurité, extensibilité              |
-| CI/CD                | GitHub Actions       | Intégré à GitHub                     |
-| Surveillance         | Prometheus + Grafana | Suivi performances & alertes         |
-| Sécurité (WAF, etc.) | NGINX + fail2ban     | Protection contre attaques courantes |
-
----
-
-## 🧩 **4. Modélisation conceptuelle (Merise)**
-
-### 📘 4.1 MCD (Modèle Conceptuel de Données)
+### 5.1 MCD (Modèle conceptuel de données)
 
 ```mermaid
 erDiagram
     COOPERATIVE ||--o{ MEMBRE : contient
     MEMBRE ||--o{ RECOLTE : effectue
-    MEMBRE ||--o{ VENTE : réalise
+    MEMBRE ||--o{ VENTE : effectue
     RECOLTE ||--|| PRODUIT : concerne
     VENTE ||--|| PRODUIT : concerne
 ```
 
----
-
-## 🧰 **5. Modélisation UML**
-
-### 🔄 5.1 Diagramme de cas d’utilisation
+### 5.2 UML – Cas d’utilisation
 
 ```mermaid
-%% Mermaid Use Case UML
-%% Acteurs : Admin, Membre
-%% Cas : Gérer membres, Récolter, Vendre, Exporter
-%% Simplifié
 graph TD
-    Admin((Admin)) --> UC1[Gérer les membres]
-    Admin --> UC2[Suivre les récoltes]
-    Admin --> UC3[Suivre les ventes]
-    Admin --> UC4[Exporter données]
-    Membre((Membre)) --> UC5[Consulter son solde]
-    Membre --> UC6[Envoyer une récolte]
+    Admin((Admin)) --> GérerMembres
+    Admin --> SuivreRécoltes
+    Admin --> Exporter
+    Membre((Membre)) --> ConsulterSolde
+    Membre --> SaisirRécolte
 ```
 
-### 📦 5.2 Diagramme de classes simplifié
+### 5.3 BPMN – Saisie de Récolte
 
 ```mermaid
-classDiagram
-    class Membre {
-        +int id
-        +string nom
-        +float solde
-    }
-    class Récolte {
-        +date date
-        +float poids
-    }
-    class Vente {
-        +date date
-        +float montant
-    }
-    Membre "1" --> "0..*" Récolte
-    Membre "1" --> "0..*" Vente
+flowchart LR
+    Start((Début)) --> Login
+    Login --> Saisie
+    Saisie --> Vérification
+    Vérification --> Enregistrement
+    Enregistrement --> NotifierAdmin
+    NotifierAdmin --> End((Fin))
 ```
 
 ---
 
-## 🔄 **6. BPMN – Processus métier (ex. Récolte)**
+## 6. 🧪 Tests et qualité logicielle
 
-```mermaid
-flowchart TD
-    Start((Début))
-    Login[Connexion]
-    Form[Remplir formulaire de récolte]
-    Validation[Validation des données]
-    Enregistrement[Stockage dans base]
-    Notif[Notification Admin]
-    End((Fin))
-
-    Start --> Login --> Form --> Validation --> Enregistrement --> Notif --> End
-```
+| Type de test        | Objectif                     | Outils                 |
+| ------------------- | ---------------------------- | ---------------------- |
+| Tests unitaires     | Fonctions & services         | Jest                   |
+| Tests d’intégration | API REST + base de données   | Supertest + PostgreSQL |
+| Tests E2E           | Scénarios complets UI        | Cypress / Flutter test |
+| Tests sécurité      | Vulnérabilités connues OWASP | OWASP ZAP              |
 
 ---
 
-## 🔐 **7. Intégration DevSecOps**
+## 7. 🔐 Intégration DevSecOps
 
-| Aspect              | Solution mise en œuvre                | Description                           |
-| ------------------- | ------------------------------------- | ------------------------------------- |
-| CI/CD               | GitHub Actions                        | Build, tests, déploiement automatique |
-| SAST                | CodeQL                                | Analyse statique de code              |
-| Authentification    | JWT via Keycloak                      | Authentification centralisée          |
-| Sécurité HTTP       | NGINX + HTTPS + Headers               | CSP, HSTS, X-Frame                    |
-| Monitoring          | Prometheus + Grafana                  | KPIs API, usage CPU, erreurs          |
-| Journalisation      | Winston (Node.js) + Logstash (option) | Logs d’accès et erreurs               |
-| Tests de sécurité   | OWASP ZAP automatisé                  | Scans de vulnérabilités (en pipeline) |
-| Gestion des secrets | GitHub Secrets + dotenv (.env)        | Variables masquées, non commitées     |
+### 7.1 Sécurité
 
----
+| Cible               | Mesure mise en place                      |
+| ------------------- | ----------------------------------------- |
+| Authentification    | JWT + Keycloak                            |
+| Sécurité API        | Rate limiting, validation, CORS           |
+| Transport HTTPS     | Let’s Encrypt + HSTS + CSP                |
+| Secrets & Tokens    | `.env` + GitHub Secrets + Vault optionnel |
+| Analyse code (SAST) | GitHub CodeQL                             |
 
-## 🧪 **8. Stratégie de test**
-
-| Type de test       | Cible                      | Outil / Framework |
-| ------------------ | -------------------------- | ----------------- |
-| Tests unitaires    | Backend (services, routes) | Jest              |
-| Tests fonctionnels | API REST                   | Supertest         |
-| Tests E2E          | App mobile                 | Flutter Test      |
-| Tests de sécurité  | Backend API                | OWASP ZAP         |
-| Tests UI           | Interface React            | Cypress           |
-
----
-
-## 📤 **9. Déploiement & livraison continue**
-
-### 🚀 Pipelines GitHub Actions
+### 7.2 CI/CD
 
 ```yaml
-# .github/workflows/deploy.yml
-name: Deploy Backend
-
+# GitHub Actions simplifié
+name: CI/CD Backend
 on:
   push:
     branches: [main]
-
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - run: npm install
-      - run: npm test
-      - run: npm run build
-      - name: Deploy
-        run: ssh user@server "cd app && git pull && npm restart"
+      - run: npm install && npm test && npm run build
 ```
 
 ---
 
-## 📦 **10. Organisation du code source**
+## 8. 🔭 Supervision & Observabilité
 
-```plaintext
+| Élément surveillé     | Outil                     | Détail                         |
+| --------------------- | ------------------------- | ------------------------------ |
+| Logs applicatifs      | Logstash + Elasticsearch  | Centralisation des logs        |
+| KPIs & métriques      | Prometheus + Grafana      | Erreurs, latence, usage CPU    |
+| Alertes               | Alertmanager              | Emails + Slack en cas de pic   |
+| Health check services | NGINX + UptimeRobot       | Surveillance HTTP / HTTPS      |
+| Traces API            | OpenTelemetry (optionnel) | Debug & traçabilité des appels |
+
+### Extrait de dashboard Grafana
+
+```mermaid
+pie
+    title Taux d'erreur par service
+    "Membres" : 2
+    "Récoltes" : 3
+    "Ventes" : 1
+```
+
+---
+
+## 9. 📦 Organisation des répertoires
+
+```bash
 agrismart/
 ├── backend/
 │   ├── controllers/
-│   ├── models/
 │   ├── routes/
+│   ├── services/
 │   ├── tests/
 │   └── app.js
 ├── frontend/
 │   ├── src/
-│   ├── components/
-│   ├── views/
-│   └── App.jsx
+│   └── components/
 ├── mobile/
-│   ├── lib/
-│   ├── screens/
-│   └── main.dart
-├── .github/
-│   └── workflows/
-├── docker/
-├── README.md
-└── docs/
+│   └── lib/
+├── infra/
+│   ├── docker-compose.yml
+│   └── nginx.conf
+├── .github/workflows/
+├── monitoring/
+│   ├── prometheus.yml
+│   ├── grafana/
+│   └── alert.rules
+└── README.md
 ```
 
 ---
 
-## 📚 **11. Annexes**
+## 🔚 10. Conclusion
 
-* **Annexe A** : Schéma MLD (modèle logique de données PostgreSQL)
-* **Annexe B** : Liste des endpoints API REST
-* **Annexe C** : Checklists DevSecOps + accès
-* **Annexe D** : Guide de déploiement manuel (dev/test/prod)
+Ce document est un **référentiel technique unique** :
+
+* Pour les développeurs (base de code, API, sécurité)
+* Pour les DevOps (CI/CD, dimensionnement, supervision)
+* Pour les décideurs (vision système, architecture logicielle)
+
+Il est mis à jour à chaque **changement majeur de conception**, et validé à chaque **release**.
 
 ---
 
