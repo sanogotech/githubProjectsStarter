@@ -22,9 +22,9 @@ graph TD
     C --> D3[Service Ventes]
     C --> D4[Service Auth (JWT + Keycloak)]
     C --> D5[Service Export]
-    D1 --> DB1[(PostgreSQL Membres)]
-    D2 --> DB2[(PostgreSQL Récoltes)]
-    D3 --> DB3[(PostgreSQL Ventes)]
+    D1 --> DB1[PostgreSQL Membres]
+    D2 --> DB2[PostgreSQL Récoltes]
+    D3 --> DB3[PostgreSQL Ventes]
     C --> LOGS[Logstash + Elasticsearch]
     C --> MON[Prometheus → Grafana]
 ```
